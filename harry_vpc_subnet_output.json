@@ -1,0 +1,180 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "1 vpc 2 subnet",
+    "Metadata": {
+
+    },
+    "Parameters": {
+      "newVpcCidr": {
+          "Description": "cidr for vpc",
+          "Type": "String",
+          "Default": "10.0.0.0/16"
+      },
+      "pubAz": {
+          "Description": "Az for public Subnet",
+          "Type": "AWS::EC2::AvailabilityZone::Name"
+      },
+      "pubSubnetCidr": {
+          "Description": "Cidr for public subnet",
+          "Type": "String",
+          "Default": "10.0.1.0/24"
+      },
+      "privAz": {
+          "Description": "Az for private subnet",
+          "Type": "AWS::EC2::AvailabilityZone::Name"
+      },
+      "privSubnetCidr": {
+          "Description": "cidr for private subnet",
+          "Type": "String",
+          "Default": "10.0.0.0/24"
+      }
+
+    },
+    "Mappings": {
+
+    },
+    "Conditions": {
+
+    },
+    "Resources": {
+      "newvpc": {
+        "Type": "AWS::EC2::VPC",
+        "Properties": {
+          "CidrBlock": { "Ref": "newVpcCidr" },
+          "Tags": [{ "Key": "Name", "Value":  "new-vpc" }]
+        }
+      },
+      "pubSubnet": {
+        "Type": "AWS::EC2::Subnet",
+        "Properties": {
+          "AvailabilityZone": { "Ref": "pubAz" },
+          "VpcId": { "Ref": "newvpc" },
+          "CidrBlock": { "Ref": "pubSubnetCidr" },
+          "Tags": [{ "Key": "Name", "Value":  "pub-sn" }]
+        }
+      },
+      "privSubnet": {
+        "Type": "AWS::EC2::Subnet",
+        "Properties": {
+          "AvailabilityZone": { "Ref": "privAz" },
+          "VpcId": { "Ref": "newvpc" },
+          "CidrBlock": { "Ref": "privSubnetCidr" },
+          "Tags": [{ "Key": "Name", "Value":  "peiv-sub" }]
+        }
+      },
+      "newIgw": {
+        "Type": "AWS::EC2::InternetGateway",
+        "Properties": {
+          "Tags": [{ "Key": "Name", "Value":  "new-vpc-igw" }]
+        }
+      },
+      "AttachGateway": {
+        "Type": "AWS::EC2::VPCGatewayAttachment",
+        "Properties": {
+          "VpcId": { "Ref": "newvpc" },
+          "InternetGatewayId": { "Ref": "newIgw" }
+        }
+      },
+      "pubRT": {
+        "Type": "AWS::EC2::RouteTable",
+        "Properties": {
+          "VpcId": { "Ref": "newvpc" },
+          "Tags": [{ "Key": "Name", "Value":  "public-route-table" }]
+        }
+      },
+      "pubRTassoc": {
+        "Type": "AWS::EC2::SubnetRouteTableAssociation",
+        "Properties": {
+          "SubnetId": { "Ref": "pubSubnet" },
+          "RouteTableId": { "Ref": "pubRT" }
+        }
+      },
+      "pubRoute": {
+        "Type": "AWS::EC2::Route",
+        "Properties": {
+          "RouteTableId": { "Ref": "pubRT" },
+          "DestinationCidrBlock": "0.0.0.0/0",
+          "GatewayId": { "Ref": "newIgw" }
+        }
+      },
+      "privRT": {
+        "Type": "AWS::EC2::RouteTable",
+        "Properties": {
+          "VpcId": { "Ref": "newvpc" },
+          "Tags": [{ "Key": "Name", "Value":  "priv-sn-rt" }]
+        }
+      },
+      "privRTassoc": {
+        "Type": "AWS::EC2::SubnetRouteTableAssociation",
+        "Properties": {
+          "SubnetId": { "Ref": "privSubnet" },
+          "RouteTableId": { "Ref": "privRT" }
+        }
+      },
+      "natEip": {
+        "Type": "AWS::EC2::EIP",
+        "Properties": {
+          "Domain": "vpc"
+        }
+      },
+      "eipNat" : {
+       "Type" : "AWS::EC2::NatGateway",
+       "Properties" : {
+        "AllocationId" : { "Fn::GetAtt" : ["natEip", "AllocationId"]},
+        "SubnetId" : { "Ref" : "pubSubnet"},
+        "Tags" : [ {"Key" : "Name", "Value" : "NatGateway-eip" } ]
+     }
+},
+      "privRoute": {
+       "Type": "AWS::EC2::Route",
+      "Properties": {
+       "RouteTableId": { "Ref": "privRT" },
+       "DestinationCidrBlock": "0.0.0.0/0",
+       "NatGatewayId": { "Ref": "eipNat" }
+  }
+},
+      "newVpcSg" : {
+        "Type" : "AWS::EC2::SecurityGroup",
+        "Properties" : {
+          "GroupDescription" : "allow ssh and http",
+          "SecurityGroupIngress" : [{
+            "IpProtocol" : "tcp",
+             "FromPort" : 80,
+             "ToPort" : 80,
+             "CidrIp" : "0.0.0.0/0"
+           },
+           {"IpProtocol" : "tcp",
+            "FromPort" : "22",
+            "ToPort" : "22",
+            "CidrIp" : "0.0.0.0/0"}
+          ],
+          "VpcId" : { "Ref": "newvpc" },
+          "Tags" :  [{ "Key": "Name", "Value":  "vpc-sg" }]
+        }
+      }
+
+
+    },
+    "Outputs": {
+      "newVpcID" : {
+        "Description" : "This is the id for the vpc",
+        "Value" : { "Ref": "newvpc" },
+        "Export" : {"Name" : "new-vpc-id"}
+      },
+      "pubSubnetID" : {
+        "Value" : { "Ref": "pubSubnet" },
+        "Export" :{"Name": "public-subnet-id"}
+      },
+      "privSubnetID" : {
+        "Value" : { "Ref": "privSubnet" },
+        "Export" : {"Name" : "private-subnet-id"}
+      },
+      "pubAzID" : {
+        "Value" : { "Fn::GetAtt" : [ "pubSubnet", "AvailabilityZone" ]}
+      },
+      "privAZID" : {
+        "Value" : { "Fn::GetAtt" : [ "privSubnet", "AvailabilityZone" ]}
+      }
+
+    }
+}

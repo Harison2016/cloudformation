@@ -1,0 +1,96 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": " 1 vpc, 2 subnets 1 public and 1 private",
+    "Metadata": {
+    },
+    "Parameters": {
+      "aceVpcCidr": {
+          "Description": "choose vpc cidr block",
+          "Type": "String",
+          "Default": "10.0.0.0/16"
+      },
+      "pubsnAZ": {
+          "Description": "availability zone for my public subnet",
+          "Type": "String",
+          "Default": "us-east-1a"
+      },
+      "pubsncidr": {
+          "Description": "cidr for my public subnet",
+          "Type": "String",
+          "Default": "10.0.1.0/24"
+      },
+      "prvtsncidr": {
+          "Description": "cidr for my private subnet",
+          "Type": "String",
+          "Default": "10.0.2.0/24"
+      }
+    },
+    "Mappings": {
+    },
+    "Conditions": {
+    },
+    "Resources": {
+      "aceVpc": {
+        "Type": "AWS::EC2::VPC",
+        "Properties": {
+          "CidrBlock": { "Ref": "aceVpcCidr" },
+          "Tags": [{ "Key": "Name", "Value":  "ace vpc" }]
+        }
+      },
+      "aceIGW": {
+        "Type": "AWS::EC2::InternetGateway",
+        "Properties": {
+          "Tags": [{ "Key": "Name", "Value":  "network gateway" }]
+        }
+      },
+      "AttachGateway": {
+        "Type": "AWS::EC2::VPCGatewayAttachment",
+        "Properties": {
+          "VpcId": { "Ref": "aceVpc" },
+          "InternetGatewayId": { "Ref": "aceIGW" }
+        }
+      },
+      "pubsn": {
+        "Type": "AWS::EC2::Subnet",
+        "Properties": {
+          "AvailabilityZone": { "Ref": "pubsnAZ" },
+          "VpcId": { "Ref": "aceVpc" },
+          "CidrBlock": "pubsncidr",
+          "Tags": [{ "Key": "Name", "Value":  "public subnet" }]
+        }
+      },
+      "pubRT": {
+        "Type": "AWS::EC2::RouteTable",
+        "Properties": {
+          "VpcId": { "Ref": "aceVpc" },
+          "Tags": [{ "Key": "Name", "Value":  "public SN RT" }]
+        }
+      },
+      "pubsnrtASSO": {
+        "Type": "AWS::EC2::SubnetRouteTableAssociation",
+        "Properties": {
+          "SubnetId": "pubsn",
+          "RouteTableId": "pubRT"
+        }
+      },
+      "pubsnRoute": {
+        "Type": "AWS::EC2::Route",
+        "Properties": {
+          "RouteTableId": "pubRT",
+          "DestinationCidrBlock": "0.0.0.0/0",
+          "GatewayId": { "Ref": "aceIGW" }
+        }
+      },
+      "Prvtsn": {
+        "Type": "AWS::EC2::Subnet",
+        "Properties": {
+          "AvailabilityZone": { "Ref": "pubsnAZ" },
+          "VpcId": { "Ref": "aceVpc" },
+          "CidrBlock":{ "Ref": "prvtsncidr" } ,
+          "Tags": [{ "Key": "Name", "Value":  "private subnet" }]
+        }
+      }
+    },
+    "Outputs": {
+    }
+}

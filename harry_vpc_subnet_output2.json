@@ -1,0 +1,176 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "1 vpc and 2 subnet",
+    "Metadata": {
+
+    },
+    "Parameters": {
+      "group4VpcCidr": {
+          "Description": "cidr for group4 vpc",
+          "Type": "String",
+          "Default": "10.0.0.0/16"
+      },
+      "pubAz": {
+          "Description": "public subnet Az",
+          "Type": "AWS::EC2::AvailabilityZone::Name"
+
+      },
+      "pubSnCidr": {
+          "Description": "public subnet cidr",
+          "Type": "String",
+          "Default": "10.0.1.0/24"
+      },
+      "privAz": {
+          "Description": "private subnet Az",
+          "Type": "AWS::EC2::AvailabilityZone::Name"
+
+      },
+      "privSnCidr": {
+          "Description": "private subnet cidr",
+          "Type": "String",
+          "Default": "10.0.0.0/24"
+      }
+
+    },
+    "Mappings": {
+
+    },
+    "Conditions": {
+
+    },
+    "Resources": {
+      "group4Vpc": {
+        "Type": "AWS::EC2::VPC",
+        "Properties": {
+          "CidrBlock": { "Ref": "group4VpcCidr" },
+          "Tags": [{ "Key": "Name", "Value":  "group4-vpc" }]
+        }
+      },
+      "pubsubnet": {
+        "Type": "AWS::EC2::Subnet",
+        "Properties": {
+          "AvailabilityZone": { "Ref": "pubAz" },
+          "VpcId": { "Ref": "group4Vpc" },
+          "CidrBlock": { "Ref": "pubSnCidr" },
+          "Tags": [{ "Key": "Name", "Value":  "public-subnet" }]
+        }
+      },
+      "privSubnet": {
+        "Type": "AWS::EC2::Subnet",
+        "Properties": {
+          "AvailabilityZone": { "Ref": "privAz" },
+          "VpcId": { "Ref": "group4Vpc" },
+          "CidrBlock": { "Ref": "privSnCidr" },
+          "Tags": [{ "Key": "Name", "Value":  "priv-" }]
+        }
+      },
+      "groupigw": {
+        "Type": "AWS::EC2::InternetGateway",
+        "Properties": {
+          "Tags": [{ "Key": "Name", "Value":  "group4-igw" }]
+        }
+      },
+      "AttachGateway": {
+        "Type": "AWS::EC2::VPCGatewayAttachment",
+        "Properties": {
+          "VpcId": { "Ref": "group4Vpc" },
+          "InternetGatewayId": { "Ref": "groupigw" }
+        }
+      },
+      "pubRT": {
+        "Type": "AWS::EC2::RouteTable",
+        "Properties": {
+          "VpcId": { "Ref": "group4Vpc" },
+          "Tags": [{ "Key": "Name", "Value":  "pub-RT" }]
+        }
+      },
+      "pubRTAss": {
+        "Type": "AWS::EC2::SubnetRouteTableAssociation",
+        "Properties": {
+          "SubnetId": { "Ref": "pubsubnet" },
+          "RouteTableId": { "Ref": "pubRT" }
+        }
+      },
+      "pubRoute": {
+        "Type": "AWS::EC2::Route",
+        "Properties": {
+          "RouteTableId": { "Ref": "pubRT" },
+          "DestinationCidrBlock": "0.0.0.0/0",
+          "GatewayId": { "Ref": "groupigw" }
+        }
+      },
+      "privRT": {
+        "Type": "AWS::EC2::RouteTable",
+        "Properties": {
+          "VpcId": { "Ref": "group4Vpc" },
+          "Tags": [{ "Key": "Name", "Value":  "priv-RT" }]
+        }
+      },
+      "privRTAss": {
+        "Type": "AWS::EC2::SubnetRouteTableAssociation",
+        "Properties": {
+          "SubnetId": { "Ref": "privSubnet" },
+          "RouteTableId": { "Ref": "privRT" }
+        }
+      },
+      "NatEip": {
+        "Type": "AWS::EC2::EIP",
+        "Properties": {
+          "Domain": "vpc"
+        }
+      },
+      "natgw" : {
+       "Type" : "AWS::EC2::NatGateway",
+       "Properties" : {
+        "AllocationId" : { "Fn::GetAtt" : ["NatEip", "AllocationId"]},
+        "SubnetId" : { "Ref" : "pubsubnet"},
+        "Tags" : [ {"Key" : "Name", "Value" : "natgateway" } ]
+     }
+},
+      "privRoute": {
+        "Type": "AWS::EC2::Route",
+        "Properties": {
+          "RouteTableId": { "Ref": "privRT" },
+          "DestinationCidrBlock": "0.0.0.0/0",
+          "NatGatewayId": { "Ref": "natgw" }
+        }
+      },
+      "group4Sg" : {
+        "Type" : "AWS::EC2::SecurityGroup",
+        "Properties" : {
+          "GroupDescription" : "allow ssh and http",
+          "SecurityGroupIngress" : [{
+            "IpProtocol" : "tcp",
+            "FromPort":"80",
+            "ToPort" :"80"
+          },
+          {"IpProtocol" : "tcp",
+          "FromPort" : "22",
+          "ToPort" : "22",
+          "CidrIp" : "100.15.115.217/32"
+        }
+
+          ],
+          "VpcId" : { "Ref": "group4Vpc" },
+          "Tags" :  [{ "Key": "Name", "Value":  "group4-sg" } ]
+        }
+      }
+
+    },
+    "Outputs": {
+      "group4VpcID" : {
+        "Description" : "This the id for the vpc",
+        "Value" : { "Ref": "group4Vpc" },
+        "Export" : {"Name" : "group4-vpc-id"}
+      },
+      "pubSnID" : {
+        "Value" : { "Ref": "pubsubnet" },
+        "Export" : {"Name" : "pub-subnet-id"}
+      },
+      "privSnID" : {
+        "Value" : { "Ref": "privSubnet" },
+        "Export" : {"Name" : "priv-sn-ID"}
+      }
+
+    }
+}
